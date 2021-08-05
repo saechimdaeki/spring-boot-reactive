@@ -10,7 +10,7 @@
 
 ### [1장 스프링 부트 웹 애플리케이션 만들기(스프링 웹플럭스를 사용해 웹 애플리케이션을 만드는 방법)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap01)
 
-### 2장 스프링 부트를 활용한 데이터 액세스(스프링 데이터를 사용해 리액티브 데이터 저장소를 사용하는 방법)
+### [2장 스프링 부트를 활용한 데이터 액세스(스프링 데이터를 사용해 리액티브 데이터 저장소를 사용하는 방법)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap02)
 
 ### 3장 스프링 부트 개발자 도구(스프링 부트가 제공하는 도구를 사용)
 
