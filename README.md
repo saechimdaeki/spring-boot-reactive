@@ -12,7 +12,7 @@
 
 ### [2장 스프링 부트를 활용한 데이터 액세스(스프링 데이터를 사용해 리액티브 데이터 저장소를 사용하는 방법)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap02)
 
-### 3장 스프링 부트 개발자 도구(스프링 부트가 제공하는 도구를 사용)
+### [3장 스프링 부트 개발자 도구(스프링 부트가 제공하는 도구를 사용)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap03)
 
 ### 4장 스프링 부트 테스트(리액티브 테스트 도구를 사용해보고 부트의 강력한 애플리케이션 테스트 지원 도구 살펴보기)
 
