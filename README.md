@@ -14,7 +14,7 @@
 
 ### [3장 스프링 부트 개발자 도구(스프링 부트가 제공하는 도구를 사용)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap03)
 
-### 4장 스프링 부트 테스트(리액티브 테스트 도구를 사용해보고 부트의 강력한 애플리케이션 테스트 지원 도구 살펴보기)
+### [4장 스프링 부트 테스트(리액티브 테스트 도구를 사용해보고 부트의 강력한 애플리케이션 테스트 지원 도구 살펴보기)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap04)
 
 ### 5장 스프링 부트 운영(애플리케이션을 상용 환경에 배포후 관리하는 방법)
 
