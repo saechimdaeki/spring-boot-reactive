@@ -23,7 +23,7 @@ public class LoadingWebSiteIntegrationTest {
                 .expectHeader().contentType(MediaType.TEXT_HTML)
                 .expectBody(String.class)
                 .consumeWith(exchangeResult -> {
-                    assertThat(exchangeResult.getResponseBody()).contains("<a href=\"/add");
+                    assertThat(exchangeResult.getResponseBody()).contains("<h2>Inventory Management</h2>");
                 });
     }
 }

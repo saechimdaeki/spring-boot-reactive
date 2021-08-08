@@ -3,7 +3,9 @@ plugins {
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
 }
-
+bootJar{
+    layered()
+}
 group = 'com.saechimdaeki'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
@@ -23,6 +25,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.mongodb:mongodb-driver-sync'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

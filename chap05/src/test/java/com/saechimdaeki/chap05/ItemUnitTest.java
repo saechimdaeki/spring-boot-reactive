@@ -16,7 +16,7 @@ public class ItemUnitTest {
         assertThat(sampleItem.getDescription()).isEqualTo("Alf TV tray");
         assertThat(sampleItem.getPrice()).isEqualTo(19.99);
         assertThat(sampleItem.toString()).isEqualTo(
-                "Item(id=item1, name=TV tray, description=Alf TV tray, price=19.99)");
+                "Item{id='item1', name='TV tray', description='Alf TV tray', price=19.99}");
 
         Item sampleItem2=new Item("item1","TV tray","Alf TV tray",19.99);
         assertThat(sampleItem).isEqualTo(sampleItem2);
