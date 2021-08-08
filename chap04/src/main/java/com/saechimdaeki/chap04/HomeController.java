@@ -27,37 +27,39 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class HomeController {
 
-	private final ItemRepository itemRepository;
-	private final CartRepository cartRepository;
-	private final CartService cartService;
-
-	@GetMapping
-	Mono<Rendering> home() {
-		return Mono.just(Rendering.view("home.html")
-				.modelAttribute("items",
-						this.itemRepository.findAll().doOnNext(System.out::println))
-				.modelAttribute("cart",
-						this.cartRepository.findById("My Cart")
-								.defaultIfEmpty(new Cart("My Cart")))
-				.build());
-	}
-
-	@PostMapping("/add/{id}")
-	Mono<String> addToCart(@PathVariable String id) {
-		return this.cartService.addToCart("My Cart",id)
-				.thenReturn("redirect:/");
-	}
+    private final InventoryService inventoryService;
 
 
-	@PostMapping
-	Mono<String> createItem(@ModelAttribute Item newItem) {
-		return this.itemRepository.save(newItem)
-				.thenReturn("redirect:/");
-	}
+    @GetMapping
+    Mono<Rendering> home() {
+        return Mono.just(Rendering.view("home.html")
+                .modelAttribute("items", this.inventoryService.getInventory())
+                .modelAttribute("cart", this.inventoryService.getCart("My Cart")
+                        .defaultIfEmpty(new Cart("My Cart")))
+                .build());
+    }
 
-	@DeleteMapping("/delete/{id}")
-	Mono<String> deleteItem(@PathVariable String id) {
-		return this.itemRepository.deleteById(id)
-				.thenReturn("redirect:/");
-	}
+    @PostMapping("/add/{id}")
+    Mono<String> addToCart(@PathVariable String id) {
+        return this.inventoryService.addItemToCart("My Cart", id)
+                .thenReturn("redirect:/");
+    }
+
+    @DeleteMapping("/remove/{id}")
+    Mono<String> removeFromCart(@PathVariable String id) {
+        return this.inventoryService.removeOneFromCart("My Cart", id)
+                .thenReturn("redirect:/");
+    }
+
+    @PostMapping
+    Mono<String> createItem(@ModelAttribute Item newItem) {
+        return this.inventoryService.saveItem(newItem)
+                .thenReturn("redirect:/");
+    }
+
+    @DeleteMapping("/delete/{id}")
+    Mono<String> deleteItem(@PathVariable String id) {
+        return this.inventoryService.deleteItem(id)
+                .thenReturn("redirect:/");
+    }
 }
