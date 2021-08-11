@@ -18,7 +18,7 @@
 
 ### [5장 스프링 부트 운영(애플리케이션을 상용 환경에 배포후 관리하는 방법)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap05)
 
-### 6장 스프링 부트 API 서버 구축(스프링 포트폴리오에서 제공하는 기술과 도구를 사용해 JSON 기반의 API 서버 만들기)
+### [6장 스프링 부트 API 서버 구축(스프링 포트폴리오에서 제공하는 기술과 도구를 사용해 JSON 기반의 API 서버 만들기)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap06)
 
 ### 7장 스프링 부트 메시징(스프링 부트와 테스트컨테이너를 사용해 메시지 기반의 비동기 시스템을 만들기)
 
