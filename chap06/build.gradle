@@ -12,11 +12,6 @@ group = 'com.saechimdaeki'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
 
-asciidoctor {
-    sourceDir 'src/main/asciidoc'
-    attributes \
-		'snippets': file('build/generated-snippets/')
-}
 
 configurations {
     compileOnly {
@@ -52,3 +47,31 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+ext {
+    snippetsDir = file('build/generated-snippets')
+}
+
+asciidoctor {
+    sourceDir 'src/main/asciidoc'
+    attributes \
+		'snippets': file('build/generated-snippets/')
+}
+
+task createAsciiPage(type: Copy) {
+    dependsOn asciidoctor
+    delete file('src/main/resources/static/index.html')
+    from file("build/docs/asciidoc/index.html")
+    into file("src/main/resources/static")
+}
+
+build {
+    dependsOn createAsciiPage
+}
+bootJar {
+    dependsOn createAsciiPage
+    from("${asciidoctor.outputDir}") {
+        into 'static'
+    }
+}
+
