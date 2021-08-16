@@ -22,7 +22,7 @@
 
 ### [7장 스프링 부트 메시징(스프링 부트와 테스트컨테이너를 사용해 메시지 기반의 비동기 시스템을 만들기)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap07)
 
-### 8장 스프링 부트 R소켓(리액티브 기능이 들어있는 R소켓 프로토콜을 알아보고 통신 전략 살펴보기)
+### [8장 스프링 부트 R소켓(리액티브 기능이 들어있는 R소켓 프로토콜을 알아보고 통신 전략 살펴보기)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap07)
 
 ### 9장 스프링 부트 애플리케이션 보안 (스프링 시큐리티를 활용해 애플리케이션 보안을 적용하는 방법)
 
