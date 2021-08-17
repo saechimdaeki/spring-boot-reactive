@@ -24,5 +24,5 @@
 
 ### [8장 스프링 부트 R소켓(리액티브 기능이 들어있는 R소켓 프로토콜을 알아보고 통신 전략 살펴보기)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap08)
 
-### 9장 스프링 부트 애플리케이션 보안 (스프링 시큐리티를 활용해 애플리케이션 보안을 적용하는 방법)
+### [9장 스프링 부트 애플리케이션 보안 (스프링 시큐리티를 활용해 애플리케이션 보안을 적용하는 방법)](https://github.com/saechimdaeki/spring-boot-reactive/tree/main/chap09)
 
