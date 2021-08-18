@@ -21,6 +21,7 @@ public class HomeControllerTest {
     @Autowired
     ItemRepository repository;
 
+
     @Test
     @WithMockUser(username = "alice", roles = {"SOME_OTHER_ROLE"})
     void addingInventoryWithoutProperRoleFails(){

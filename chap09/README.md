@@ -336,3 +336,358 @@ ROLE_INVENTORY 역할을 가진 테스트용 사용자를 추가하자.
 쉽게말하면 JSON데이터를 HTTP POST방식으로 서버에서 보내서 데이터베이스에 저장된 값을 조회해서 예상대로 동작했는지 확인한 것이다.
 
 처음 써볼 때는 조금 복잡하게 느껴질 수도 있지만 리액터 테스트를계속 작성하다 보면 꽤 유용하다는 사실을 알게 될 것이다.
+
+## 사용자 컨텍스트 접근
+
+보안 관리 기능을 추가한다는 것은 현재 사용자의 세부정보에 접근할 수 있다는 점에서 또 다른 중요한 의미를 갖는다. 이제부터 사용자의 장바구니 정보에
+
+대한 얘기를 다룰 것이다. 로그인한 사용자의 세부정보에 접근할 수 있으므로 사용자별로 서로 다른 장바구니를 보여줄 수 있어야 한다.
+
+```java
+@GetMapping
+    Mono<Rendering> home(Authentication auth) {
+        return Mono.just(Rendering.view("home.html")
+                .modelAttribute("items", this.inventoryService.getInventory())
+                .modelAttribute("cart", this.inventoryService.getCart(cartName(auth))
+                        .defaultIfEmpty(new Cart(cartName(auth))))
+                .modelAttribute("auth", auth)
+                .build());
+    }
+```
+
+- Authentication 객체를 템플릿에 모델로 제공해주면, 템플릿이 웹 페이지의 컨텍스트에 모델 데이터를 담아서 사용할 수 있게 된다.
+
+`Authentication` 정보를 활용하도록 웹 페이지를 수정하기 전에 cartName()메소드가 정확히 무슨일을 하는지 알아보자.
+
+```java
+private static String cartName(Authentication auth) {
+        return auth.getName() + "'s Cart";
+    }
+```
+
+이 간단한 이름 생성 로직을 정적 메소드로 옮기면 장바구니 생성 로직을 일원화할 수 있다. Authentication 객체를 템플릿의 모델로 추가하면 사용자
+
+컨텍스트 정보를 보여줄 수 있게된다는 확실한 장점이 추가된다. 다음 HTML코드를 home.html 템플릿의 `<body>`  태그 안의 맨위에 추가하자
+
+```html
+<table>
+    <tr>
+        <td>Name:</td>
+        <td th:text="${auth.name}"></td>
+    </tr>
+    <tr>
+        <td>Authorities:</td>
+        <td th:text="${auth.authorities}"></td>
+    </tr>
+</table>
+<form action="/logout" method="post">
+    <input type="submit" value="Logout">
+</form>
+<hr/>
+```
+
+이 코드가 추가되면 사용자의 이름과 권한 목록이 표시된다. 로그아웃 버튼도 추가해서 다양한 시나리오를 쉽게 테스트할 수 있게 했고, 마지막으로 `<hr/>` 을
+
+사용해서 화면에 수평선을 표시해서 화려한 CSS없이도 쉽게 구별할 수 있게 했다. 이제 애플리케이션을 재시작하고 http://localhost:8080에 접속해
+
+username을 manager, password를 1234 를 입력하면 다음과 같이 manager의 컨텍스트 정보가 화면 상단에 표시된다.
+
+![image](https://user-images.githubusercontent.com/40031858/129815442-80e05751-59ab-4ab3-bcc3-22a58438a7a3.png)
+
+새로 추가한 HTML 코드에 의해 사용자 이름과 권한, 로그아웃 버튼이 화면에 표시된다. 이제 사용자의 장바구니에서 Item을 추가/삭제하는 기능도
+
+개선해보자. 
+
+```java
+@PostMapping("/add/{id}")
+    Mono<String> addToCart(Authentication auth, @PathVariable String id) {
+        return this.inventoryService.addItemToCart(cartName(auth), id)
+                .thenReturn("redirect:/");
+    }
+
+    @DeleteMapping("/remove/{id}")
+    Mono<String> removeFromCart(Authentication auth, @PathVariable String id) {
+        return this.inventoryService.removeOneFromCart(cartName(auth), id)
+                .thenReturn("redirect:/");
+    }
+```
+
+`Authentication` 이 두 메소드의 인자로 추가됐다. 사용자 장바구니에 Item을 추가하거나 삭제하기 위해 먼저 장바구니를 찾아야 하며, 이때 cartName() 
+
+메소드를 사용한다. 사용자 세부정보를 기준으로 장바구니를 구별할 수 있도록 약간 변경했을 뿐이지만 전체 애플리케이션에서 장바구니가 하나밖에 없던
+
+시스템에서 사용자별 장바구니를 사용할 수 있는 시스템으로 전환됐다. 이제 말그대로 수백만 개의 장바구니도 감당할 수 있게 됐다. 
+
+## 메소드 수준 보안
+
+지금까지 기본적인 보안을 적용했는데 그에 따른 이슈도 있다. pathMatchers(POST,"/").hasRole(...) 같은 HTTP동사와 URL규칙을 사용해서 세부적인
+
+제어를 할 수 있게 됐지만 여전히 다음과 같은 한계가 있다.
+
+- 컨트롤러 클래스를 변경하면 시큐리티 정책도 함께 변경해야 한다.
+- 컨트롤러가 추가될수록 SecurityWebFilterChain 빈에 추가해야 할 규칙도 금세 늘어난다.
+- 웹 엔드포인트와 직접적으로 연결되지는 않지만 역할 기반의 보안규칙을 적용할 수 있다면 좋지않을까?
+
+이런 이슈를 해결하기 위해 메소드 수준 보안방식이 등장했다.
+
+스프링 시큐리티 애노테이션을 메소드에 직접 명시해서 비즈니스 로직이 있는 곳에 필요한 보안 조치를 직접 적용할 수 있다. 수십개의 컨트롤러의 수많은
+
+URL에 대한 보안 규칙을 SecurityConfig에 정의하는 대신에, 비즈니스 로직에 따라 적절한 보안 규칙을 비즈니스 로직 바로 곁에 둘 수 있다.
+
+메소드 수준 보안을 더 자세히 알아보기 전에 몇가지 웹 컨트롤러 메소드보다 더 실질적인 예제가 필요하다. 스프링 헤이티오스(Spring HATEOAS)를
+
+사용하는 REST API를 추가한다.
+
+```groovy
+implementation('org.springframework.boot:spring-boot-starter-hateoas'){
+        exclude group:"org.springframework.boot", module:"spring-boot-starter-web"
+    }
+```
+
+메소드 수준 보안은 기본으로 활성화되지는 않으며 다음과 같이 `@EnableReactiveMethodSecurity` 를 추가해야 활성화된다. 물론 아무 클래스에나
+
+추가하는 것보다 보안 설정 클래스를 추가하는 것이 가장 좋다.
+
+```java
+@Configuration
+@EnableReactiveMethodSecurity
+public class SecurityConfig {
+  ...
+}
+```
+
+리액티브 버전인 `@EnableReactiveMethodSecurity` 를 붙이는 것이 중요하다. 그렇지 않으면 제대로 동작하지 않는다. 메소드 수준 보안으로 변경
+
+하는 작업의 첫 단계는 pathMatcher()를 제거하는 것이다.
+
+```java
+@Bean
+    SecurityWebFilterChain myCustomSecurityPolicy(ServerHttpSecurity http) {
+        return http
+                .authorizeExchange(exchanges -> exchanges
+                        .anyExchange().authenticated()
+                        .and()
+                        .httpBasic()
+                        .and()
+                        .formLogin())
+                .csrf().disable()
+                .build();
+    }
+```
+
+pathMatcher()로 저장했던 규칙을 제거하니까 기본 보안 정책과 거의 비슷할 정도로 단순해졌다. 유일한 차이는 CSRF를 비활성화했다는 것이다.
+
+인가 규칙을 제거하고 나면 ApiItemController를 작성할 차례다.  새 Item 객체를 생성하는 메소드를 집중해서 살펴보자. 인가된 사용자에
+
+의해서만 실행되게 한다.
+
+```java
+@PreAuthorize("hasRole('" + INVENTORY + "')")
+    @PostMapping("/api/items/add")
+    Mono<ResponseEntity<?>> addNewItem(@RequestBody Item item, Authentication auth) {
+        return this.repository.save(item)
+                .map(Item::getId)
+                .flatMap(id -> findOne(id, auth))
+                .map(newModel -> ResponseEntity.created(newModel
+                        .getRequiredLink(IanaLinkRelations.SELF)
+                        .toUri()).build());
+    }
+```
+
+- @PreAuthorize는 메소드 수준에서 보안을 적용할 수 있게 해주는 스프링 시큐리티의 핵심 애노테이션이다 스프링 시큐리티 SpEL 표현식을
+
+  사용해서 이 메소드를 호출하는 사용자가 ROLE_INVENTORY 역할을 가지고 있는지 단언한다. INVENTORY는 앞에서 "INVENTORY" 라는
+
+  문자열을 가진 단순한 상수다.
+
+- 이 메소드도 Authentication 객체를 인자로 받는다. 어떤 이유에서든 메소드가 현재 사용자의 보안 컨텍스트를 사용할 필요가 있다면 이방식으로 주입
+
+  받을 수 있다. 주입받은 Authentication 객체를 사용하는 방법은 다음절에서 다룬다.
+
+장바구니에서 Item을 삭제하는 메소드에도 동일한 메소드 수준 보안을 적용해야한다.
+
+```java
+@PreAuthorize("hasRole('" + INVENTORY + "')")
+    @DeleteMapping("/api/items/delete/{id}")
+    Mono<ResponseEntity<?>> deleteItem(@PathVariable String id) {
+        return this.repository.deleteById(id) 
+                .thenReturn(ResponseEntity.noContent().build());
+    }
+```
+
+`@PreAuthorize` 는 메소드 수준 보안에 관해서는 스프링 시큐리티의 중심 타자라고 할 수 있다. 더 복잡한 표현식을 사용할 수도 있으며 심지어 메소드
+
+인자를 사용할 수도 있다. 또한 `@PostAuthorize` 를 사용하면 메소드 호출 후에 보안 규칙을 적용할 수도 있다. 중요 결정 사항이 포함된 핵심 내용이 
+
+반환되는 경우 `@PostAuthorize` 를 사용하면 좋다. 스프링 시큐리티 SpEL 표현식에 단순히 returnObject를 사용해서 반환값을 참조하면 된다.
+
+하지만 데이터베이스를 수정하고 반환값으로 제어하는 것은 비용이 든다. 결과 목록을 반환받은 후에 필터링을 하고싶다면 `@PostFilter` 를 
+
+사용할 수 있다. 이렇게 하면 현재 사용자가 볼 수 있도록 인가되지 않은 데이터를 반환 목록에서 필터링해서 제외할 수 있다. 하지만 결국 필터링될 
+
+데이터를 포함해서 많은 양의 데이터를 조회하는 것 자체가 비효율적이다. 그래서 스프링 데이터는 Authentication 객체를 사용해서 현재 사용자가
+
+볼 수 있는 데이터만 조회하는 기능을 지원한다. 메소드 수준 보안을 적용했으므로 잊지 말고 테스트를 통해 확인하자. 먼저 적절한 권한이 없는
+
+사용자가 새 Item 추가를 시도했을 때 새 Item이 추가되지 않는지 테스트해보자.
+
+```java
+@Test
+    @WithMockUser(username = "alice",roles = {"SOME_OTHER_ROLE"})
+    void addingInventoryWithoutProperRoleFails(){
+        this.webTestClient
+                .post().uri("/api/items/add")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{" +
+                        "\"name\": \"iPhone X\", " +
+                        "\"description\": \"upgrade\", " +
+                        "\"price\": 999.99" +
+                        "}")
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+```
+
+- 스프링 시큐리티의 @WithMockUser를 써서 SOME_OTHER_RULE이라는 역할이 부여된 인가되지 않은 가짜 사용자를 테스트에 요청한다
+
+인가되지 않은 사용자 테스트는 예상대로 통과되었다. 이제 인가된 사용자 테스트를 작성하자.
+
+```java
+@Test
+    @WithMockUser(username = "bob", roles = {"INVENTORY"})
+    void addingInventoryWithProperRoleSucceeds() {
+        this.webTestClient 
+                .post().uri("/api/items/add") 
+                .contentType(MediaType.APPLICATION_JSON) 
+                .bodyValue("{" +
+                        "\"name\": \"iPhone X\", " + 
+                        "\"description\": \"upgrade\", " + 
+                        "\"price\": 999.99" + 
+                        "}") 
+                .exchange() 
+                .expectStatus().isCreated(); 
+
+        this.repository.findByName("iPhone X") 
+                .as(StepVerifier::create) 
+                .expectNextMatches(item -> { 
+                    assertThat(item.getDescription()).isEqualTo("upgrade");
+                    assertThat(item.getPrice()).isEqualTo(999.99);
+                    return true; 
+                }) 
+                .verifyComplete(); 
+    }
+```
+
+이런 테스트 케이스를 작성하면 보안 프로파일이 적절하게 설정됐는지 쉽게 확인할 수 있다. 그리고 인가된 사용자와 인가되지 않은 사용자에 대해
+
+각각 최소 1개씩의 테스트를 작성해서 보안 정책의 정상동작에 높은 신뢰성을 확보할 수 있다. 보안 정책을 변경한다면 테스트 코드에도 많은
+
+변경사항이 발생하지 않을까? 그렇다. 하지만 그게 나쁜 것은 아니다. 보안 정책이 변경되면 많은 부분이 변경될 수 있는데, 테스트가 있다면 테스트가 실패
+
+하면서 변경돼야 하는 부분을 더 쉽게 찾아 변경할 수 있게 된다. 보안 관점에서 가장 중요한 첫 번째 원칙은 권한이 부족한 사용자가 인가받지 않은 기능을
+
+사용하지 못하게 하는 것이고, 앞의 예제에서 바로 그부분을 다뤘다. ROLE_INVENTORY 권한을 가진 사용자만 시스템의 재고를 변경하는 기능을
+
+수행할 수 있다. 보안 관점에서 두 번째로 중요한 원칙은 첫 번째 원칙을 위배할 수 있는 어떤 단서도 사용자에게 보여주지 않는 것이다. 하이퍼미디어 관점
+
+에서는 인가받지 못한 사용자가 접근할 수 없는 링크는 제공하지 말아야 함을 의미한다. 두번째 원칙을 지킬 수 있도록 하이퍼미디어 레코드를
+
+보여주는 findOne() 메소드를 점검해서 불필요한 정보를 인가되지 않은 사용자에게 전달하지 않는 방법을 알아보자.
+
+```java
+private static final SimpleGrantedAuthority ROLE_INVENTORY =
+            new SimpleGrantedAuthority("ROLE_" + INVENTORY);
+
+@GetMapping("/api/items/{id}")
+    Mono<EntityModel<Item>> findOne(@PathVariable String id, Authentication auth) {
+        ApiItemController controller = methodOn(ApiItemController.class);
+
+        Mono<Link> selfLink = linkTo(controller.findOne(id, auth)).withSelfRel()
+                .toMono();
+
+        Mono<Link> aggregateLink = linkTo(controller.findAll(auth))
+                .withRel(IanaLinkRelations.ITEM).toMono();
+
+        Mono<Links> allLinks;
+
+        if (auth.getAuthorities().contains(ROLE_INVENTORY)) {
+            Mono<Link> deleteLink = linkTo(controller.deleteItem(id)).withRel("delete")
+                    .toMono();
+            allLinks = Mono.zip(selfLink, aggregateLink, deleteLink)
+                    .map(links -> Links.of(links.getT1(), links.getT2(), links.getT3()));
+        } else {
+            allLinks = Mono.zip(selfLink, aggregateLink)
+                    .map(links -> Links.of(links.getT1(), links.getT2()));
+        }
+
+        return this.repository.findById(id)
+                .zipWith(allLinks)
+                .map(o -> EntityModel.of(o.getT1(), o.getT2()));
+    }
+```
+
+- 사용자에게 반환할 링크 정보를 `Mono<Links>` 타입의 allLinks에 담을것이다. `Mono<Links>` 는 스프링 헤이티오스의 링크 데이터 모음인
+
+  Links 타입을 원소로 하는 리액터 버전 컬렉션이다. 
+
+- 사용자가 ROLE_INVENTORY 권한을 가지고 있는지 검사해서 가지고 있으면 DELETE 기능에 대한 링크를 self와 애그리것 루트 링크와 함께
+
+  allLinks에 포함한다. 리액터의 Mono.zip() 연산은 주어진 3개의 링크를 병한한 후 튜플(tuple) 로 만든다. 그리고 map()을 통해 Links객체로 변환
+
+- 사용자가 ROLE_INVENTORY 권한을 가지고 있지 않다면 self링크만 애그리것 루트 링크에 포함한다
+
+- 데이터 스토어에서 Item 객체를 조회하고 Links 정보를 추가해서 스프링 헤이티오스의 EntityModel 컨테이너로 변환해서 반환한다.
+
+주의깊게 봐야할 것은 Mono.zip()을 사용한다는 점이다. zip은 함수형 프로그래밍에서는 매우 친숙한 개념이다. 리액터에서는 여러개의 결과가 
+
+필요하지만 결과가 언제 종료될지 알 수 없을때 `zip` 을 사용한다. 예를들어 3개의 원격 호출이 필요하고 3개의 결과를 하나로 묶어서 받고 싶다고
+
+가정하자. Mono.zip()은 3개의 응답을 모두 받았을때 콜백을 호출해서 결과를 묶음 처리한다.
+
+```java
+@Test
+    @WithMockUser(username = "alice")
+    void navigateToItemWithoutInventoryAuthority() {
+        RepresentationModel<?> root = this.webTestClient.get().uri("/api")
+                .exchange()
+                .expectBody(RepresentationModel.class)
+                .returnResult().getResponseBody();
+
+        CollectionModel<EntityModel<Item>> items = this.webTestClient.get()
+                .uri(root.getRequiredLink(IanaLinkRelations.ITEM).toUri())
+                .exchange()
+                .expectBody(new CollectionModelType<EntityModel<Item>>() {
+                })
+                .returnResult().getResponseBody();
+
+        assertThat(items.getLinks()).hasSize(1);
+        assertThat(items.hasLink(IanaLinkRelations.SELF)).isTrue();
+
+        EntityModel<Item> first = items.getContent().iterator().next();
+
+        EntityModel<Item> item = this.webTestClient.get()
+                .uri(first.getRequiredLink(IanaLinkRelations.SELF).toUri())
+                .exchange()
+                .expectBody(new EntityModelType<Item>() {
+                }) 
+                .returnResult().getResponseBody();
+
+        assertThat(item.getLinks()).hasSize(2);
+        assertThat(item.hasLink(IanaLinkRelations.SELF)).isTrue();
+        assertThat(item.hasLink(IanaLinkRelations.ITEM)).isTrue();
+    }
+```
+
+첫번째 webTestClient는 /api에 GET요청을 전송해서 링크 목록을 반환받는다. 링크 목록만 포함돼 있으므로 RepresentationModel<?> 객체로
+
+추출할 수 있다. 이제 Item 링크를 요청해서 URI를 추출하고 애그리것 루트의 응답을 CollectionModel<EntityModel< Item>> 으로 반환한다. 
+
+인가받은 사용자에 대한 테스트이므로 self링크뿐만 아니라 add링크도 포함돼 있어야 하며, 단언문을 통해 확인한다.
+
+CollectionModel에서 첫 번째 EntityModel< Item> 을 가져와서 self 링크를 알아내고 다시 self링크로 GET요청을 보내서 Item 세부정보를 가져와서
+
+delete 링크가 포함돼 있는지 단언한다. 이제 메소드 수준에서 세밀하게 보안 제어를 적용하는 방법을 알게됐다. 그리고 사용자의 보안 프로파일 정보를 
+
+이용해서 화면에 표시되는 정보도 바꿀 수 있게 됐다. 
+
+ 
